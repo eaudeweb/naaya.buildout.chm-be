@@ -1,0 +1,76 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          zope-biodiv
+# Required-Start:    hostname $local_fs $syslog
+# Required-Stop:     hostname $local_fs $syslog
+# Should-Start:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: start the zope zerver for biodiv.be
+# Description:       start the zope zerver for biodiv.be
+### END INIT INFO
+
+RETVAL=0
+SUCMD='su -s /bin/bash edw -c'
+PREFIX='/var/local/bch'
+INSTANCES=("zope-instance-cop10" "zope-instance-training")
+INSTANCES_ZEO=("zope-instance-biodiv-0" "zope-instance-biodiv-1" "zope-instance-biodiv-2" "zope-instance-biodiv-3" "zope-instance-biodiv-4")
+
+start_all() {
+    $SUCMD "$PREFIX/bin/zeoserver-biodiv start"
+    for name in "${INSTANCES_ZEO[@]}"; do
+        $SUCMD "$PREFIX/bin/$name start"
+    done
+    $SUCMD "$PREFIX/bin/haproxy -D -f $PREFIX/haproxy.cfg"
+
+    for name in "${INSTANCES[@]}"; do
+        $SUCMD "$PREFIX/bin/$name start"
+    done
+}
+
+stop_all() {
+    $SUCMD "kill -9 `pidof haproxy`"
+    for name in "${INSTANCES_ZEO[@]}"; do
+        $SUCMD "$PREFIX/bin/$name stop"
+    done
+    $SUCMD "$PREFIX/bin/zeoserver-biodiv stop"
+
+    for name in "${INSTANCES[@]}"; do
+        $SUCMD "$PREFIX/bin/$name stop"
+    done
+}
+
+status_all() {
+    echo -n "zeoserver: "
+    $PREFIX/bin/zeoserver-biodiv status
+    for name in "${INSTANCES_ZEO[@]}"; do
+        echo -n "$name: "
+        $PREFIX/bin/$name status
+    done
+
+    for name in "${INSTANCES[@]}"; do
+        echo -n "$name: "
+        $PREFIX/bin/$name status
+    done
+}
+
+case "$1" in
+  start)
+        start_all
+        ;;
+  stop)
+        stop_all
+        ;;
+  status)
+        status_all
+        ;;
+  restart)
+        stop_all
+        start_all
+        ;;
+  *)
+        echo "Usage: $0 {start|stop|status|restart}"
+        RETVAL=1
+esac
+exit $RETVAL
